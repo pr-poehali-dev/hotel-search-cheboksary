@@ -1,16 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Icon from '@/components/ui/icon';
 import HotelMap from '@/components/HotelMap';
+import AuthDialog from '@/components/AuthDialog';
+import { authService, User } from '@/lib/auth';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -78,6 +82,24 @@ const Index = () => {
   const [selectedRoom, setSelectedRoom] = useState<string>('');
   const [highlightedHotelId, setHighlightedHotelId] = useState<number | undefined>();
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [user, setUser] = useState<User | null>(null);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+
+  useEffect(() => {
+    const token = authService.getToken();
+    if (token) {
+      authService.verifySession(token).then((userData) => {
+        if (userData) {
+          setUser(userData);
+        }
+      });
+    }
+  }, []);
+
+  const handleLogout = () => {
+    authService.logout();
+    setUser(null);
+  };
 
   const filteredHotels = hotels.filter(h => h.price >= priceRange[0] && h.price <= priceRange[1]);
 
@@ -93,10 +115,39 @@ const Index = () => {
               Отели Чебоксар
             </h1>
           </div>
-          <Button variant="outline" className="gap-2">
-            <Icon name="User" size={18} />
-            Войти
-          </Button>
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="gap-2">
+                  <Avatar className="w-8 h-8">
+                    <AvatarImage src={user.avatar} />
+                    <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <span className="hidden md:inline">{user.name}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem>
+                  <Icon name="User" size={16} className="mr-2" />
+                  Профиль
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Icon name="Calendar" size={16} className="mr-2" />
+                  Мои бронирования
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <Icon name="LogOut" size={16} className="mr-2" />
+                  Выйти
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button variant="outline" className="gap-2" onClick={() => setAuthDialogOpen(true)}>
+              <Icon name="User" size={18} />
+              Войти
+            </Button>
+          )}
         </div>
       </header>
 
@@ -517,6 +568,12 @@ const Index = () => {
           <p className="text-center text-muted-foreground">© 2026 Отели Чебоксар. Все права защищены.</p>
         </div>
       </footer>
+
+      <AuthDialog
+        open={authDialogOpen}
+        onOpenChange={setAuthDialogOpen}
+        onAuthSuccess={(userData) => setUser(userData)}
+      />
     </div>
   );
 };

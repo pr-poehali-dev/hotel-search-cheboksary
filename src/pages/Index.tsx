@@ -8,7 +8,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
+import HotelMap from '@/components/HotelMap';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -22,6 +24,8 @@ const hotels = [
     price: 4500,
     image: 'https://cdn.poehali.dev/projects/112e496c-3a18-4cac-9bdf-d0dcd6431fa4/files/bcfa7b10-8c9e-4fc9-bfbf-af4459829e89.jpg',
     location: 'Центр города',
+    lat: 56.1439,
+    lng: 47.2489,
     amenities: ['Wi-Fi', 'Парковка', 'Ресторан', 'Спа'],
     description: 'Роскошный отель в самом сердце Чебоксар с великолепным видом на Волгу',
     rooms: [
@@ -38,6 +42,8 @@ const hotels = [
     price: 3800,
     image: 'https://cdn.poehali.dev/projects/112e496c-3a18-4cac-9bdf-d0dcd6431fa4/files/d6c479a8-6fef-459c-b309-215c9b383985.jpg',
     location: 'Набережная',
+    lat: 56.1366,
+    lng: 47.2625,
     amenities: ['Wi-Fi', 'Завтрак', 'Фитнес'],
     description: 'Современный бутик-отель на берегу Волги с панорамными окнами',
     rooms: [
@@ -53,6 +59,8 @@ const hotels = [
     price: 5200,
     image: 'https://cdn.poehali.dev/projects/112e496c-3a18-4cac-9bdf-d0dcd6431fa4/files/baeb2b05-fbea-49f4-8c04-72add71da39a.jpg',
     location: 'Деловой район',
+    lat: 56.1522,
+    lng: 47.2383,
     amenities: ['Wi-Fi', 'Парковка', 'Бассейн', 'Конференц-зал'],
     description: 'Современный бизнес-отель с отличной инфраструктурой',
     rooms: [
@@ -68,6 +76,8 @@ const Index = () => {
   const [priceRange, setPriceRange] = useState([3000, 15000]);
   const [selectedHotel, setSelectedHotel] = useState<typeof hotels[0] | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<string>('');
+  const [highlightedHotelId, setHighlightedHotelId] = useState<number | undefined>();
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
   const filteredHotels = hotels.filter(h => h.price >= priceRange[0] && h.price <= priceRange[1]);
 
@@ -213,21 +223,62 @@ const Index = () => {
                 <h3 className="text-2xl font-bold">
                   Найдено {filteredHotels.length} отелей
                 </h3>
-                <Select defaultValue="rating">
-                  <SelectTrigger className="w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="rating">По рейтингу</SelectItem>
-                    <SelectItem value="price-asc">Сначала дешевые</SelectItem>
-                    <SelectItem value="price-desc">Сначала дорогие</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-3">
+                  <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'map')} className="bg-white rounded-lg">
+                    <TabsList>
+                      <TabsTrigger value="list" className="gap-2">
+                        <Icon name="List" size={16} />
+                        Список
+                      </TabsTrigger>
+                      <TabsTrigger value="map" className="gap-2">
+                        <Icon name="Map" size={16} />
+                        Карта
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                  <Select defaultValue="rating">
+                    <SelectTrigger className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="rating">По рейтингу</SelectItem>
+                      <SelectItem value="price-asc">Сначала дешевые</SelectItem>
+                      <SelectItem value="price-desc">Сначала дорогие</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <div className="grid gap-6">
+              {viewMode === 'map' ? (
+                <div className="h-[600px] animate-fade-in">
+                  <HotelMap
+                    hotels={filteredHotels}
+                    onHotelClick={(id) => {
+                      const hotel = hotels.find(h => h.id === id);
+                      if (hotel) {
+                        setSelectedHotel(hotel);
+                        const dialog = document.querySelector(`[data-hotel-id="${id}"]`);
+                        if (dialog) {
+                          (dialog as HTMLButtonElement).click();
+                        }
+                      }
+                    }}
+                    selectedHotelId={highlightedHotelId}
+                  />
+                </div>
+              ) : (
+                <div className="grid gap-6">
                 {filteredHotels.map((hotel, idx) => (
-                  <Card key={hotel.id} className="overflow-hidden hover:shadow-xl transition-all duration-300 hover-scale animate-fade-in" style={{ animationDelay: `${idx * 100}ms` }}>
+                  <Card
+                    key={hotel.id}
+                    className={cn(
+                      "overflow-hidden hover:shadow-xl transition-all duration-300 hover-scale animate-fade-in",
+                      highlightedHotelId === hotel.id && "ring-4 ring-primary"
+                    )}
+                    style={{ animationDelay: `${idx * 100}ms` }}
+                    onMouseEnter={() => setHighlightedHotelId(hotel.id)}
+                    onMouseLeave={() => setHighlightedHotelId(undefined)}
+                  >
                     <div className="md:flex">
                       <div className="md:w-80 h-64 md:h-auto relative overflow-hidden">
                         <img
@@ -283,6 +334,7 @@ const Index = () => {
                                 size="lg"
                                 className="bg-gradient-to-r from-primary via-secondary to-accent hover:opacity-90"
                                 onClick={() => setSelectedHotel(hotel)}
+                                data-hotel-id={hotel.id}
                               >
                                 <Icon name="CalendarCheck" className="mr-2" size={18} />
                                 Забронировать
@@ -412,7 +464,8 @@ const Index = () => {
                     </div>
                   </Card>
                 ))}
-              </div>
+                </div>
+              )}
             </main>
           </div>
         </div>
